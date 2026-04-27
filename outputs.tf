@@ -1,4 +1,3 @@
-# --- S3 Backend Outputs ---
 output "s3_bucket_name" {
   description = "Name of the S3 bucket for Terraform state"
   value       = module.s3_backend.bucket_name
@@ -14,7 +13,6 @@ output "dynamodb_table_name" {
   value       = module.s3_backend.dynamodb_table_name
 }
 
-# --- VPC Outputs ---
 output "vpc_id" {
   description = "ID of the VPC"
   value       = module.vpc.vpc_id
@@ -40,7 +38,6 @@ output "nat_gateway_id" {
   value       = module.vpc.nat_gateway_id
 }
 
-# --- ECR Outputs ---
 output "ecr_repository_url" {
   description = "URL of the ECR repository"
   value       = module.ecr.repository_url
@@ -49,4 +46,12 @@ output "ecr_repository_url" {
 output "ecr_repository_arn" {
   description = "ARN of the ECR repository"
   value       = module.ecr.repository_arn
+}
+
+output "eks_cluster_name" {
+  value = module.eks.cluster_name
+}
+
+output "eks_cluster_endpoint" {
+  value = module.eks.cluster_endpoint
 }
