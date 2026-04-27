@@ -1,0 +1,33 @@
+image:
+  repository: 419772658013.dkr.ecr.eu-central-1.amazonaws.com/lesson-7-ecr
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8000
+
+replicaCount: 2
+
+hpa:
+  minReplicas: 2
+  maxReplicas: 6
+  cpuThreshold: 70
+
+config:
+  djangoSecretKey: "django-insecure-change-me-in-production"
+  debug: "False"
+  postgresDb: "mydb"
+  postgresUser: "myuser"
+  postgresPassword: "mypassword"
+  postgresHost: "db"
+  postgresPort: "5432"
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

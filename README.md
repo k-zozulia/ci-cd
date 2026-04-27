@@ -1,135 +1,134 @@
-# Lesson 5 — Terraform Infrastructure on AWS
+# Lesson 7 — Kubernetes on AWS (EKS) + Helm
 
 ## Опис проєкту
 
-Terraform-конфігурація для розгортання базової інфраструктури на AWS, що включає:
-- **S3 + DynamoDB** — зберігання та блокування Terraform state
-- **VPC** — мережева інфраструктура з публічними та приватними підмережами
+Розгортання Django-застосунку в кластері Kubernetes на AWS з використанням:
+- **EKS** — керований Kubernetes кластер
 - **ECR** — реєстр Docker-образів
+- **VPC** — мережева інфраструктура
+- **S3 + DynamoDB** — зберігання Terraform state
+- **Helm** — деплой застосунку в кластер
 
 ---
 
-## Структура директорій
+## Структура проєкту
 
 ```
-lesson-5/
-├── main.tf              # Підключення всіх модулів та provider
-├── backend.tf           # Налаштування S3 backend для state
-├── outputs.tf           # Зведені outputs з усіх модулів
-│
-└── modules/
-    ├── s3-backend/      # S3 bucket + DynamoDB для state locking
-    │   ├── s3.tf
-    │   ├── dynamodb.tf
-    │   ├── variables.tf
-    │   └── outputs.tf
-    │
-    ├── vpc/             # VPC, підмережі, IGW, NAT, маршрутизація
-    │   ├── vpc.tf
-    │   ├── routes.tf
-    │   ├── variables.tf
-    │   └── outputs.tf
-    │
-    └── ecr/             # ECR репозиторій для Docker-образів
-        ├── ecr.tf
-        ├── variables.tf
-        └── outputs.tf
+├── main.tf              # Підключення модулів
+├── backend.tf           # S3 backend для state
+├── outputs.tf           # Outputs
+├── modules/
+│   ├── s3-backend/      # S3 + DynamoDB
+│   ├── vpc/             # VPC, підмережі, IGW, NAT
+│   ├── ecr/             # ECR репозиторій
+│   └── eks/             # EKS кластер + Node Group
+└── charts/
+    └── django-app/
+        ├── Chart.yaml
+        ├── values.yaml
+        └── templates/
+            ├── deployment.yaml
+            ├── service.yaml
+            ├── configmap.yaml
+            └── hpa.yaml
 ```
 
 ---
 
 ## Модулі
 
-### `s3-backend`
-Створює S3-бакет для зберігання Terraform state-файлів та таблицю DynamoDB для блокування.
-
-- S3: версіювання, шифрування AES256, блокування публічного доступу
-- DynamoDB: `PAY_PER_REQUEST`, hash key `LockID`
-
-| Змінна       | Опис                          | За замовчуванням   |
-|--------------|-------------------------------|--------------------|
-| `bucket_name`| Ім'я S3 бакета                | —                  |
-| `table_name` | Ім'я таблиці DynamoDB         | `terraform-locks`  |
-
----
-
-### `vpc`
-Створює повноцінну мережеву інфраструктуру:
-
-- VPC з заданим CIDR блоком
-- 3 публічні підмережі (з автопризначенням публічних IP)
-- 3 приватні підмережі
-- Internet Gateway для публічного трафіку
-- NAT Gateway + Elastic IP для приватних підмереж
-- Route Tables для публічних і приватних підмереж
-
-| Змінна              | Опис                        | За замовчуванням   |
-|---------------------|-----------------------------|--------------------|
-| `vpc_cidr_block`    | CIDR блок VPC               | `10.0.0.0/16`      |
-| `public_subnets`    | Список CIDR публічних підмереж | —               |
-| `private_subnets`   | Список CIDR приватних підмереж | —               |
-| `availability_zones`| Список AZ                   | —                  |
-| `vpc_name`          | Ім'я VPC                    | `main-vpc`         |
-
----
+### `eks`
+Створює EKS кластер та Node Group:
+- IAM ролі для кластера та нод
+- EKS кластер версії 1.30
+- Node Group з `t3.medium` інстансами
+- Автоматичне масштабування від 1 до 3 нод
 
 ### `ecr`
-Створює ECR-репозиторій для зберігання Docker-образів:
+Репозиторій для Django Docker-образу з автоматичним скануванням.
 
-- Автоматичне сканування образів при завантаженні
-- Lifecycle policy (видалення старих untagged образів)
-- Repository policy для доступу в межах AWS-акаунту
+### `vpc`
+VPC з 3 публічними та 3 приватними підмережами, IGW, NAT Gateway.
 
-| Змінна        | Опис                             | За замовчуванням |
-|---------------|----------------------------------|------------------|
-| `ecr_name`    | Ім'я ECR репозиторію             | —                |
-| `scan_on_push`| Сканування образів при push      | `true`           |
+### `s3-backend`
+S3 бакет + DynamoDB для зберігання та блокування Terraform state.
 
 ---
 
-## Попередні вимоги
+## Helm Chart
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
-- AWS CLI налаштований (`aws configure`)
-- IAM permissions: S3, DynamoDB, VPC, ECR
-
-> **Важливо:** Перед використанням `backend.tf` потрібно спочатку створити S3-бакет і DynamoDB вручну або через модуль `s3-backend` без backend-конфігурації.
+### Компоненти
+- **Deployment** — Django застосунок з образом з ECR, змінні через ConfigMap
+- **Service** — LoadBalancer для зовнішнього доступу
+- **HPA** — автомасштабування від 2 до 6 подів при CPU > 70%
+- **ConfigMap** — змінні середовища Django
 
 ---
 
-## Команди
+## Інструкція з розгортання
 
-### Ініціалізація
-
+### 1. Передумови
 ```bash
+aws configure
+terraform --version
+helm version
+kubectl version
+```
+
+### 2. Розгорни інфраструктуру
+```bash
+# Закоментуй backend.tf
 terraform init
-```
-
-### Перевірка плану
-
-```bash
-terraform plan
-```
-
-### Застосування змін
-
-```bash
 terraform apply
 ```
 
-### Знищення ресурсів
-
+### 3. Підключись до кластера
 ```bash
+aws eks update-kubeconfig \
+  --region eu-central-1 \
+  --name lesson-7-cluster
+
+kubectl get nodes
+```
+
+### 4. Збери і запуш Docker образ
+```bash
+aws ecr get-login-password --region eu-central-1 | \
+  docker login --username AWS --password-stdin \
+  419772658013.dkr.ecr.eu-central-1.amazonaws.com
+
+docker buildx build --platform linux/amd64 \
+  -t 419772658013.dkr.ecr.eu-central-1.amazonaws.com/lesson-7-ecr:latest \
+  --push .
+```
+
+### 5. Деплой через Helm
+```bash
+helm install django-app ./charts/django-app
+kubectl get pods
+kubectl get svc
+```
+
+### 6. Знищення ресурсів
+```bash
+helm uninstall django-app
 terraform destroy
 ```
 
 ---
 
-## Порядок першого розгортання
+## Команди для перевірки
 
-1. Закоментуйте вміст `backend.tf` (або видаліть файл тимчасово)
-2. Запустіть `terraform init && terraform apply` — створяться S3 і DynamoDB
-3. Розкоментуйте `backend.tf`
-4. Запустіть `terraform init` — Terraform перенесе state у S3
+```bash
+# Статус подів
+kubectl get pods
 
----
+# Зовнішній IP
+kubectl get svc
+
+# Логи поду
+kubectl logs -l app=django-app
+
+# HPA статус
+kubectl get hpa
+```
