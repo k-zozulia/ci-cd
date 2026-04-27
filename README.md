@@ -14,14 +14,50 @@
 ## Структура проєкту
 
 ```
-├── main.tf              # Підключення модулів
-├── backend.tf           # S3 backend для state
-├── outputs.tf           # Outputs
+├── main.tf                  # Підключення модулів
+├── backend.tf               # S3 backend для state
+├── outputs.tf               # Outputs
+├── Dockerfile               # Docker образ Django застосунку
+├── manage.py                # Django management script
+├── requirements.txt         # Python залежності
+│
+├── myproject/               # Django проєкт
+│   ├── __init__.py
+│   ├── settings.py
+│   ├── urls.py
+│   ├── wsgi.py
+│   └── asgi.py
+│
+├── myapp/                   # Django застосунок
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── models.py
+│   ├── views.py
+│   ├── urls.py
+│   ├── tests.py
+│   └── migrations/
+│
 ├── modules/
-│   ├── s3-backend/      # S3 + DynamoDB
-│   ├── vpc/             # VPC, підмережі, IGW, NAT
-│   ├── ecr/             # ECR репозиторій
-│   └── eks/             # EKS кластер + Node Group
+│   ├── s3-backend/          # S3 + DynamoDB для Terraform state
+│   │   ├── s3.tf
+│   │   ├── dynamodb.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   ├── vpc/                 # VPC, підмережі, IGW, NAT
+│   │   ├── vpc.tf
+│   │   ├── routes.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   ├── ecr/                 # ECR репозиторій
+│   │   ├── ecr.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── eks/                 # EKS кластер + Node Group
+│       ├── eks.tf
+│       ├── variables.tf
+│       └── outputs.tf
+│
 └── charts/
     └── django-app/
         ├── Chart.yaml
