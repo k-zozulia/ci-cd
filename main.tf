@@ -45,7 +45,7 @@ module "eks" {
   source             = "./modules/eks"
   cluster_name       = "lesson-7-cluster"
   kubernetes_version = "1.31"
-  subnet_ids         = module.vpc.public_subnet_ids
+  subnet_ids         = module.vpc.private_subnet_ids
   node_instance_type = "t3.medium"
   node_desired_size  = 2
   node_min_size      = 1
