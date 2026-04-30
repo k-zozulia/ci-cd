@@ -1,0 +1,12 @@
+applications:
+  - name: django-app
+    namespace: argocd
+    targetNamespace: default
+    repoURL: https://github.com/k-zozulia/ci-cd.git
+    path: charts/django-app
+    branch: lesson-8-9
+
+repositories:
+  - url: https://github.com/k-zozulia/ci-cd.git
+    username: git
+    password: ""

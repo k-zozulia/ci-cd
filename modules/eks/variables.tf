@@ -1,7 +1,7 @@
 variable "cluster_name" {
   description = "Name of the EKS cluster"
   type        = string
-  default     = "lesson-7-cluster"
+  default = "lesson-8-9-cluster"
 }
 
 variable "kubernetes_version" {

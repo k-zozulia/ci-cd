@@ -55,3 +55,11 @@ output "eks_cluster_name" {
 output "eks_cluster_endpoint" {
   value = module.eks.cluster_endpoint
 }
+
+output "jenkins_namespace" {
+  value = module.jenkins.jenkins_namespace
+}
+
+output "argocd_namespace" {
+  value = module.argo_cd.argocd_namespace
+}

@@ -1,0 +1,36 @@
+controller:
+  serviceType: LoadBalancer
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - configuration-as-code:latest
+    - amazon-ecr:latest
+    - pipeline-aws:latest
+    - credentials-binding:latest
+    - docker-workflow:latest
+
+  JCasC:
+    defaultConfig: true
+
+agent:
+  enabled: true
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+persistence:
+  enabled: true
+  size: "8Gi"
