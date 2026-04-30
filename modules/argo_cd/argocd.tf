@@ -24,20 +24,5 @@ resource "helm_release" "argocd_apps" {
   chart     = "${path.module}/charts"
   namespace = kubernetes_namespace.argocd.metadata[0].name
 
-  set {
-    name  = "applications[0].repoURL"
-    value = var.github_repo
-  }
-
-  set {
-    name  = "repositories[0].url"
-    value = var.github_repo
-  }
-
-  set {
-    name  = "repositories[0].password"
-    value = var.github_token
-  }
-
   depends_on = [helm_release.argocd]
 }

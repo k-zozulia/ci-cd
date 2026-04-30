@@ -1,25 +1,34 @@
-server:
-  service:
-    type: LoadBalancer
-
-configs:
-  params:
-    server.insecure: true
-
 controller:
+  serviceType: LoadBalancer
   resources:
     requests:
-      cpu: 250m
-      memory: 256Mi
+      cpu: "500m"
+      memory: "512Mi"
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: "1000m"
+      memory: "1Gi"
 
-server:
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - configuration-as-code:latest
+    - credentials-binding:latest
+
+  JCasC:
+    defaultConfig: true
+
+agent:
+  enabled: true
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: "200m"
+      memory: "256Mi"
     limits:
-      cpu: 200m
-      memory: 256Mi
+      cpu: "500m"
+      memory: "512Mi"
+
+persistence:
+  enabled: true
+  storageClass: "gp2"
+  size: "8Gi"
