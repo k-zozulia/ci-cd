@@ -33,4 +33,5 @@ agent:
 
 persistence:
   enabled: true
+  storageClass: "gp2"
   size: "8Gi"
