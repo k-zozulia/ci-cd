@@ -41,19 +41,20 @@ spec:
         GITHUB_BRANCH     = "lesson-8-9"
     }
 
-    stage('Build & Push to ECR') {
-        steps {
-            container('kaniko') {
-                sh """
-                    /kaniko/executor \
-                        --context=dir:///home/jenkins/agent/workspace/django-pipeline \
-                        --dockerfile=/home/jenkins/agent/workspace/django-pipeline/Dockerfile \
-                        --destination=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} \
-                        --destination=${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
-                """
+    stages {
+        stage('Build & Push to ECR') {
+            steps {
+                container('kaniko') {
+                    sh """
+                        /kaniko/executor \
+                            --context=dir:///home/jenkins/agent/workspace/django-pipeline \
+                            --dockerfile=/home/jenkins/agent/workspace/django-pipeline/Dockerfile \
+                            --destination=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} \
+                            --destination=${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
+                    """
+                }
             }
         }
-    }
 
         stage('Update Helm values.yaml') {
             steps {
