@@ -1,6 +1,6 @@
 image:
   repository: 419772658013.dkr.ecr.eu-central-1.amazonaws.com/lesson-7-ecr
-  tag: latest
+  tag: "5"
   pullPolicy: Always
 
 service:
