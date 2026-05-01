@@ -1,3 +1,7 @@
+server:
+  service:
+    type: LoadBalancer
+
 controller:
   serviceType: LoadBalancer
   resources:
