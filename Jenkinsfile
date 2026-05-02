@@ -42,6 +42,12 @@ spec:
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build & Push to ECR') {
             steps {
                 container('kaniko') {

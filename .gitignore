@@ -2,3 +2,9 @@
 terraform.tfstate
 terraform.tfstate.backup
 .terraform.tfstate.lock.info
+*.backup
+*.tfvars
+*.tfvars.json
+.env
+__pycache__/
+*.py[cod]
