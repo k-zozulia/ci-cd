@@ -49,17 +49,41 @@ output "ecr_repository_arn" {
 }
 
 output "eks_cluster_name" {
-  value = module.eks.cluster_name
+  description = "Name of the EKS cluster"
+  value       = module.eks.cluster_name
 }
 
 output "eks_cluster_endpoint" {
-  value = module.eks.cluster_endpoint
+  description = "Endpoint of the EKS cluster"
+  value       = module.eks.cluster_endpoint
+}
+
+output "rds_endpoint" {
+  description = "Primary connection endpoint for the RDS database"
+  value       = module.rds.db_endpoint
+}
+
+output "rds_security_group_id" {
+  description = "ID of the RDS security group"
+  value       = module.rds.security_group_id
 }
 
 output "jenkins_namespace" {
-  value = module.jenkins.jenkins_namespace
+  description = "Namespace where Jenkins is deployed"
+  value       = module.jenkins.jenkins_namespace
 }
 
 output "argocd_namespace" {
-  value = module.argo_cd.argocd_namespace
+  description = "Namespace where Argo CD is deployed"
+  value       = module.argo_cd.argocd_namespace
+}
+
+output "monitoring_namespace" {
+  description = "Namespace where Prometheus and Grafana are deployed"
+  value       = module.monitoring.monitoring_namespace
+}
+
+output "grafana_service_name" {
+  description = "Grafana service name"
+  value       = module.monitoring.grafana_service_name
 }

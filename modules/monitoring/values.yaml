@@ -1,0 +1,52 @@
+grafana:
+  adminPassword: "admin123"
+
+  service:
+    type: LoadBalancer
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Pre-configured dashboards
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: utc
+
+prometheus:
+  prometheusSpec:
+    retention: 10d
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 400Mi
+      limits:
+        cpu: 500m
+        memory: 800Mi
+
+    # Scrape all namespaces
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+# Collect metrics from Kubernetes nodes
+nodeExporter:
+  enabled: true
+
+# Collect metrics from Kubernetes components
+kubeStateMetrics:
+  enabled: true
