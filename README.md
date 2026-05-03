@@ -1,211 +1,198 @@
-# Lesson 8-9 — CI/CD Pipeline: Jenkins + Argo CD + Terraform + Helm
+# Module `rds`
 
-## Опис проєкту
-
-Повний CI/CD pipeline для Django-застосунку на AWS з використанням:
-- **Terraform** — інфраструктура як код (EKS, ECR, VPC, S3)
-- **Jenkins** — автоматичне збирання Docker-образу та оновлення Helm chart
-- **Kaniko** — збірка Docker-образів всередині Kubernetes
-- **Argo CD** — GitOps-деплой застосунку в кластер
-- **Helm** — пакетний менеджер для Kubernetes
+A universal Terraform module for deploying a managed database on AWS.  
+Supports both a **standard RDS instance** and an **Aurora Cluster** via a single `use_aurora` variable.
 
 ---
 
-## Схема CI/CD
+## What this module creates
 
-```
-Developer pushes code
-        ↓
-   Jenkins Pipeline
-        ↓
-  Kaniko builds image
-        ↓
-  Push to Amazon ECR
-        ↓
-  Update values.yaml tag in Git
-        ↓
-   Argo CD detects change
-        ↓
-  Auto-sync to EKS cluster
-        ↓
-  Django app is live 🚀
-```
+In both modes the following resources are always created:
+- `aws_db_subnet_group` — subnet group for the database
+- `aws_security_group` — security group allowing access on the database port
+- `aws_db_parameter_group` — parameter group with `max_connections`, `log_statement`, and `work_mem`
+
+When `use_aurora = false`:
+- `aws_db_instance` — a single RDS instance
+
+When `use_aurora = true`:
+- `aws_rds_cluster` — Aurora cluster
+- `aws_rds_cluster_parameter_group` — cluster-level parameter group
+- `aws_rds_cluster_instance` — writer instance
 
 ---
 
-## Структура проєкту
+## Usage examples
 
-```
-├── Jenkinsfile              # CI pipeline (build, push, update tag)
-├── Dockerfile               # Docker образ Django застосунку
-├── manage.py                # Django management script
-├── requirements.txt         # Python залежності
-├── main.tf                  # Підключення всіх Terraform модулів
-├── backend.tf               # S3 backend для Terraform state
-├── outputs.tf               # Terraform outputs
-│
-├── myproject/               # Django проєкт
-├── myapp/                   # Django застосунок
-│
-├── modules/
-│   ├── s3-backend/          # S3 + DynamoDB для Terraform state
-│   ├── vpc/                 # VPC, підмережі, IGW, NAT Gateway
-│   ├── ecr/                 # ECR репозиторій для Docker-образів
-│   ├── eks/                 # EKS кластер + Node Group + EBS CSI Driver
-│   ├── jenkins/             # Jenkins через Helm
-│   │   ├── jenkins.tf
-│   │   ├── providers.tf
-│   │   ├── variables.tf
-│   │   ├── values.yaml
-│   │   └── outputs.tf
-│   └── argo_cd/             # Argo CD через Helm
-│       ├── argocd.tf
-│       ├── providers.tf
-│       ├── variables.tf
-│       ├── values.yaml
-│       ├── outputs.tf
-│       └── charts/
-│           ├── Chart.yaml
-│           ├── values.yaml
-│           └── templates/
-│               ├── application.yaml
-│               └── repository.yaml
-│
-└── charts/
-    └── django-app/
-        ├── Chart.yaml
-        ├── values.yaml
-        └── templates/
-            ├── deployment.yaml
-            ├── service.yaml
-            ├── configmap.yaml
-            └── hpa.yaml
+### Standard RDS (PostgreSQL)
+
+```hcl
+module "rds" {
+  source = "./modules/rds"
+
+  use_aurora     = false
+  identifier     = "my-postgres-db"
+  engine         = "postgres"
+  engine_version = "15.4"
+  instance_class = "db.t3.medium"
+
+  db_name     = "mydb"
+  db_username = "dbadmin"
+  db_password = "SuperSecret123!"
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnet_ids
+
+  multi_az            = false
+  allocated_storage   = 20
+  skip_final_snapshot = true
+}
 ```
 
----
+### Aurora PostgreSQL Cluster
 
-## Модулі Terraform
+```hcl
+module "rds" {
+  source = "./modules/rds"
 
-### `eks`
-EKS кластер версії 1.31 з Node Group (`t3.medium`), IAM ролями, OIDC провайдером та EBS CSI Driver addon.
+  use_aurora     = true
+  identifier     = "my-aurora-cluster"
+  engine         = "aurora-postgresql"
+  engine_version = "15.4"
+  instance_class = "db.r6g.large"
 
-### `jenkins`
-Jenkins через Helm з Kubernetes agent, Kaniko для збірки образів, LoadBalancer сервісом та persistent storage (EBS gp2, 8Gi).
+  db_name     = "mydb"
+  db_username = "dbadmin"
+  db_password = "SuperSecret123!"
 
-### `argo_cd`
-Argo CD через Helm з автоматичною синхронізацією `django-app` з гілки `lesson-8-9`.
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnet_ids
 
-### `ecr`
-ECR репозиторій з автоматичним скануванням та lifecycle policy.
+  skip_final_snapshot = true
+}
+```
 
-### `vpc`
-VPC (`10.0.0.0/16`) з 3 публічними та 3 приватними підмережами, IGW та NAT Gateway.
+### Aurora MySQL Cluster
 
----
+```hcl
+module "rds" {
+  source = "./modules/rds"
 
-## Як застосувати Terraform
+  use_aurora     = true
+  identifier     = "my-aurora-mysql"
+  engine         = "aurora-mysql"
+  engine_version = "8.0.mysql_aurora.3.04.0"
+  instance_class = "db.t3.medium"
+  db_port        = 3306
 
-```bash
-# 1. Закоментуй backend.tf
-terraform init
-terraform apply
+  db_name     = "mydb"
+  db_username = "dbadmin"
+  db_password = "SuperSecret123!"
 
-# 2. Підключись до кластера
-aws eks update-kubeconfig \
-  --region eu-central-1 \
-  --name lesson-8-9-cluster
-
-# 3. Створи ECR secret для Jenkins
-kubectl create secret docker-registry docker-credentials \
-  --docker-server=AWS_ACCOUNT_ID.dkr.ecr.eu-central-1.amazonaws.com \
-  --docker-username=AWS \
-  --docker-password=$(aws ecr get-login-password --region eu-central-1) \
-  --namespace=jenkins
-
-# 4. Створи PVC для Jenkins
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: jenkins
-  namespace: jenkins
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: gp2
-  resources:
-    requests:
-      storage: 8Gi
-EOF
-
-# 5. Патч Argo CD на LoadBalancer
-kubectl patch svc argocd-server -n argocd \
-  -p '{"spec": {"type": "LoadBalancer"}}'
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnet_ids
+}
 ```
 
 ---
 
-## Як перевірити Jenkins job
+## Variables
 
-```bash
-# Отримай URL
-kubectl get svc -n jenkins
-# Відкрий EXTERNAL-IP:8080
-```
-
-Логін: `admin` / `admin123`
-
-Перед першим запуском додай GitHub credentials:
-- Manage Jenkins → Credentials → Global → Add Credentials
-- Kind: `Secret text`, ID: `github-token`
-
-Запуск: `django-pipeline` → **Build Now**
-
-Pipeline виконує:
-1. Клонує репозиторій
-2. Збирає образ через Kaniko
-3. Пушить в ECR з тегом `BUILD_NUMBER`
-4. Оновлює `tag` в `charts/django-app/values.yaml`
-5. Пушить зміни в GitHub
-
----
-
-## Як побачити результат в Argo CD
-
-```bash
-# Отримай URL
-kubectl get svc -n argocd | grep argocd-server
-# Відкрий EXTERNAL-IP в браузері
-```
-
-Логін: `admin` / пароль:
-```bash
-kubectl get secret argocd-initial-admin-secret \
-  -n argocd \
-  -o jsonpath="{.data.password}" | base64 -d
-```
-
-Application `django-app` має статус **Synced** після кожного Jenkins build.
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `use_aurora` | `bool` | `false` | `true` creates an Aurora Cluster; `false` creates a standard RDS instance |
+| `identifier` | `string` | — | Unique name used for all created resources |
+| `engine` | `string` | `"postgres"` | DB engine: `postgres`, `mysql`, `aurora-postgresql`, `aurora-mysql` |
+| `engine_version` | `string` | `"15.4"` | Version of the DB engine |
+| `instance_class` | `string` | `"db.t3.medium"` | Instance class (affects CPU and RAM) |
+| `allocated_storage` | `number` | `20` | Disk size in GB (standard RDS only) |
+| `db_name` | `string` | `"mydb"` | Name of the initial database |
+| `db_username` | `string` | `"dbadmin"` | Master username (sensitive) |
+| `db_password` | `string` | — | Master password (sensitive) |
+| `multi_az` | `bool` | `false` | Enable Multi-AZ deployment (standard RDS only) |
+| `db_port` | `number` | `5432` | Database port (5432 for PostgreSQL, 3306 for MySQL) |
+| `skip_final_snapshot` | `bool` | `true` | Skip final snapshot on deletion |
+| `deletion_protection` | `bool` | `false` | Protect the database from accidental deletion |
+| `backup_retention_period` | `number` | `7` | Number of days to retain automated backups |
+| `vpc_id` | `string` | — | ID of the VPC where the database will be deployed |
+| `subnet_ids` | `list(string)` | — | Subnet IDs for the DB Subnet Group (minimum 2 in different AZs) |
+| `allowed_cidr_blocks` | `list(string)` | `["10.0.0.0/16"]` | CIDR blocks allowed to connect to the database |
+| `tags` | `map(string)` | `{ManagedBy="Terraform"}` | Tags applied to all resources |
 
 ---
 
-## Команди для перевірки
+## Outputs
 
-```bash
-kubectl get pods -A
-kubectl get pods -n default
-kubectl get svc -n default
-kubectl get pods -n jenkins
-kubectl get pods -n argocd
-kubectl get hpa -n default
-kubectl logs -l app=django-app -n default
+| Output | Description |
+|--------|-------------|
+| `db_endpoint` | Universal primary endpoint (works in both modes) |
+| `rds_instance_endpoint` | RDS instance endpoint (`use_aurora = false` only) |
+| `rds_instance_address` | RDS instance hostname (`use_aurora = false` only) |
+| `aurora_cluster_endpoint` | Aurora writer endpoint (`use_aurora = true` only) |
+| `aurora_reader_endpoint` | Aurora reader endpoint (`use_aurora = true` only) |
+| `aurora_writer_instance_id` | Aurora writer instance ID (`use_aurora = true` only) |
+| `security_group_id` | ID of the database security group |
+| `db_subnet_group_name` | Name of the DB subnet group |
+| `parameter_group_name` | Name of the DB parameter group |
+
+---
+
+## How to change the DB type, engine, or instance class
+
+**Switch to MySQL:**
+```hcl
+engine         = "mysql"
+engine_version = "8.0"
+db_port        = 3306
+```
+
+**Use a larger instance class for production:**
+```hcl
+instance_class = "db.r6g.xlarge"
+```
+
+**Enable Multi-AZ (standard RDS only):**
+```hcl
+multi_az = true
+```
+
+**Enable deletion protection for production:**
+```hcl
+deletion_protection = true
+skip_final_snapshot = false
 ```
 
 ---
 
-## Знищення ресурсів
+## Integration with main.tf
 
-```bash
-helm uninstall django-app -n default
-terraform destroy
+```hcl
+module "rds" {
+  source = "./modules/rds"
+
+  use_aurora     = false
+  identifier     = "lesson-db"
+  engine         = "postgres"
+  engine_version = "15.4"
+  instance_class = "db.t3.medium"
+
+  db_name     = "mydb"
+  db_username = "myuser"
+  db_password = var.db_password
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnet_ids
+
+  tags = {
+    ManagedBy   = "Terraform"
+    Environment = "dev"
+    Project     = "lesson-db"
+  }
+}
+
+output "db_endpoint" {
+  value = module.rds.db_endpoint
+}
 ```
+
+> ⚠️ Remember to run `terraform destroy` after testing to avoid unexpected AWS charges.
