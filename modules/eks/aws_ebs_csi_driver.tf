@@ -1,4 +1,4 @@
-# OIDC Provider для EKS
+# OIDC Provider for EKS
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
@@ -9,7 +9,7 @@ resource "aws_iam_openid_connect_provider" "eks" {
   url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
-# IAM роль для EBS CSI Driver
+# IAM role for the EBS CSI Driver
 data "aws_iam_policy_document" "ebs_csi_assume_role" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]

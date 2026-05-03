@@ -1,198 +1,196 @@
-# Module `rds`
+# Final Project — DevOps CI/CD Platform on AWS
 
-A universal Terraform module for deploying a managed database on AWS.  
-Supports both a **standard RDS instance** and an **Aurora Cluster** via a single `use_aurora` variable.
-
----
-
-## What this module creates
-
-In both modes the following resources are always created:
-- `aws_db_subnet_group` — subnet group for the database
-- `aws_security_group` — security group allowing access on the database port
-- `aws_db_parameter_group` — parameter group with `max_connections`, `log_statement`, and `work_mem`
-
-When `use_aurora = false`:
-- `aws_db_instance` — a single RDS instance
-
-When `use_aurora = true`:
-- `aws_rds_cluster` — Aurora cluster
-- `aws_rds_cluster_parameter_group` — cluster-level parameter group
-- `aws_rds_cluster_instance` — writer instance
+A complete production-grade CI/CD platform deployed on AWS using Terraform, Kubernetes, Helm, Jenkins, Argo CD, and Prometheus/Grafana.
 
 ---
 
-## Usage examples
+## Architecture overview
 
-### Standard RDS (PostgreSQL)
-
-```hcl
-module "rds" {
-  source = "./modules/rds"
-
-  use_aurora     = false
-  identifier     = "my-postgres-db"
-  engine         = "postgres"
-  engine_version = "15.4"
-  instance_class = "db.t3.medium"
-
-  db_name     = "mydb"
-  db_username = "dbadmin"
-  db_password = "SuperSecret123!"
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnet_ids
-
-  multi_az            = false
-  allocated_storage   = 20
-  skip_final_snapshot = true
-}
 ```
-
-### Aurora PostgreSQL Cluster
-
-```hcl
-module "rds" {
-  source = "./modules/rds"
-
-  use_aurora     = true
-  identifier     = "my-aurora-cluster"
-  engine         = "aurora-postgresql"
-  engine_version = "15.4"
-  instance_class = "db.r6g.large"
-
-  db_name     = "mydb"
-  db_username = "dbadmin"
-  db_password = "SuperSecret123!"
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnet_ids
-
-  skip_final_snapshot = true
-}
-```
-
-### Aurora MySQL Cluster
-
-```hcl
-module "rds" {
-  source = "./modules/rds"
-
-  use_aurora     = true
-  identifier     = "my-aurora-mysql"
-  engine         = "aurora-mysql"
-  engine_version = "8.0.mysql_aurora.3.04.0"
-  instance_class = "db.t3.medium"
-  db_port        = 3306
-
-  db_name     = "mydb"
-  db_username = "dbadmin"
-  db_password = "SuperSecret123!"
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnet_ids
-}
+Developer pushes code
+        ↓
+   Jenkins Pipeline
+        ↓
+  Kaniko builds Docker image
+        ↓
+  Push to Amazon ECR
+        ↓
+  Update image tag in Git (values.yaml)
+        ↓
+   Argo CD detects change
+        ↓
+  Auto-sync to EKS cluster
+        ↓
+  Django app is live
+        ↓
+  Prometheus + Grafana monitor everything
 ```
 
 ---
 
-## Variables
+## Infrastructure components
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `use_aurora` | `bool` | `false` | `true` creates an Aurora Cluster; `false` creates a standard RDS instance |
-| `identifier` | `string` | — | Unique name used for all created resources |
-| `engine` | `string` | `"postgres"` | DB engine: `postgres`, `mysql`, `aurora-postgresql`, `aurora-mysql` |
-| `engine_version` | `string` | `"15.4"` | Version of the DB engine |
-| `instance_class` | `string` | `"db.t3.medium"` | Instance class (affects CPU and RAM) |
-| `allocated_storage` | `number` | `20` | Disk size in GB (standard RDS only) |
-| `db_name` | `string` | `"mydb"` | Name of the initial database |
-| `db_username` | `string` | `"dbadmin"` | Master username (sensitive) |
-| `db_password` | `string` | — | Master password (sensitive) |
-| `multi_az` | `bool` | `false` | Enable Multi-AZ deployment (standard RDS only) |
-| `db_port` | `number` | `5432` | Database port (5432 for PostgreSQL, 3306 for MySQL) |
-| `skip_final_snapshot` | `bool` | `true` | Skip final snapshot on deletion |
-| `deletion_protection` | `bool` | `false` | Protect the database from accidental deletion |
-| `backup_retention_period` | `number` | `7` | Number of days to retain automated backups |
-| `vpc_id` | `string` | — | ID of the VPC where the database will be deployed |
-| `subnet_ids` | `list(string)` | — | Subnet IDs for the DB Subnet Group (minimum 2 in different AZs) |
-| `allowed_cidr_blocks` | `list(string)` | `["10.0.0.0/16"]` | CIDR blocks allowed to connect to the database |
-| `tags` | `map(string)` | `{ManagedBy="Terraform"}` | Tags applied to all resources |
+| Component | Description |
+|-----------|-------------|
+| VPC | Isolated network with public and private subnets across 3 AZs |
+| EKS | Managed Kubernetes cluster (v1.31) with auto-scaling node group |
+| ECR | Private Docker registry for application images |
+| RDS | PostgreSQL 15.4 database in private subnets |
+| Jenkins | CI server running inside Kubernetes via Helm |
+| Argo CD | GitOps continuous delivery tool |
+| Prometheus | Metrics collection for the entire cluster |
+| Grafana | Dashboards and visualization for Prometheus metrics |
+| S3 + DynamoDB | Terraform remote state storage with locking |
 
 ---
 
-## Outputs
+## Project structure
 
-| Output | Description |
-|--------|-------------|
-| `db_endpoint` | Universal primary endpoint (works in both modes) |
-| `rds_instance_endpoint` | RDS instance endpoint (`use_aurora = false` only) |
-| `rds_instance_address` | RDS instance hostname (`use_aurora = false` only) |
-| `aurora_cluster_endpoint` | Aurora writer endpoint (`use_aurora = true` only) |
-| `aurora_reader_endpoint` | Aurora reader endpoint (`use_aurora = true` only) |
-| `aurora_writer_instance_id` | Aurora writer instance ID (`use_aurora = true` only) |
-| `security_group_id` | ID of the database security group |
-| `db_subnet_group_name` | Name of the DB subnet group |
-| `parameter_group_name` | Name of the DB parameter group |
-
----
-
-## How to change the DB type, engine, or instance class
-
-**Switch to MySQL:**
-```hcl
-engine         = "mysql"
-engine_version = "8.0"
-db_port        = 3306
 ```
-
-**Use a larger instance class for production:**
-```hcl
-instance_class = "db.r6g.xlarge"
-```
-
-**Enable Multi-AZ (standard RDS only):**
-```hcl
-multi_az = true
-```
-
-**Enable deletion protection for production:**
-```hcl
-deletion_protection = true
-skip_final_snapshot = false
+ci-cd/
+├── main.tf               # Root module — connects all modules
+├── backend.tf            # S3 remote state backend
+├── outputs.tf            # Root-level outputs
+├── .gitignore
+│
+├── modules/
+│   ├── s3-backend/       # S3 bucket + DynamoDB for Terraform state
+│   ├── vpc/              # VPC, subnets, IGW, NAT Gateway, route tables
+│   ├── ecr/              # ECR repository with lifecycle policy
+│   ├── eks/              # EKS cluster, node group, EBS CSI driver
+│   ├── rds/              # RDS / Aurora database (see modules/rds/README.md)
+│   ├── jenkins/          # Jenkins via Helm
+│   ├── argo_cd/          # Argo CD via Helm + app definitions
+│   └── monitoring/       # Prometheus + Grafana via kube-prometheus-stack
+│
+├── charts/
+│   └── django-app/       # Helm chart for the Django application
+│
+└── Django/
+    ├── Dockerfile
+    ├── Jenkinsfile
+    ├── docker-compose.yaml
+    ├── nginx.conf
+    └── app/              # Django source code
+        ├── manage.py
+        ├── requirements.txt
+        ├── myproject/
+        └── myapp/
 ```
 
 ---
 
-## Integration with main.tf
+## How to deploy
 
-```hcl
-module "rds" {
-  source = "./modules/rds"
+### Prerequisites
 
-  use_aurora     = false
-  identifier     = "lesson-db"
-  engine         = "postgres"
-  engine_version = "15.4"
-  instance_class = "db.t3.medium"
+- AWS CLI configured with sufficient permissions
+- Terraform >= 1.0
+- kubectl
+- helm
 
-  db_name     = "mydb"
-  db_username = "myuser"
-  db_password = var.db_password
+### Step 1 — Bootstrap the backend
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnet_ids
+Comment out `backend.tf`, then run:
 
-  tags = {
-    ManagedBy   = "Terraform"
-    Environment = "dev"
-    Project     = "lesson-db"
-  }
-}
-
-output "db_endpoint" {
-  value = module.rds.db_endpoint
-}
+```bash
+terraform init
+terraform apply -target=module.s3_backend
 ```
 
-> ⚠️ Remember to run `terraform destroy` after testing to avoid unexpected AWS charges.
+Uncomment `backend.tf` and migrate state:
+
+```bash
+terraform init -migrate-state
+```
+
+### Step 2 — Deploy all infrastructure
+
+```bash
+terraform apply
+```
+
+This creates VPC, EKS, ECR, RDS, Jenkins, Argo CD, and monitoring in one run. EKS takes ~15 minutes.
+
+### Step 3 — Connect to the cluster
+
+```bash
+aws eks update-kubeconfig \
+  --region eu-central-1 \
+  --name final-project-cluster
+```
+
+### Step 4 — Verify all components
+
+```bash
+kubectl get all -n jenkins
+kubectl get all -n argocd
+kubectl get all -n monitoring
+kubectl get all -n default
+```
+
+### Step 5 — Access the services
+
+**Jenkins:**
+```bash
+kubectl get svc -n jenkins
+# Open EXTERNAL-IP:8080
+# Login: admin / admin123
+```
+
+**Argo CD:**
+```bash
+kubectl get svc -n argocd
+# Open EXTERNAL-IP in browser
+# Login: admin / initial password:
+kubectl get secret argocd-initial-admin-secret \
+  -n argocd \
+  -o jsonpath="{.data.password}" | base64 -d
+```
+
+**Grafana:**
+```bash
+kubectl get svc -n monitoring
+# Open EXTERNAL-IP:80 in browser
+# Login: admin / admin123
+```
+
+---
+
+## CI/CD flow
+
+1. Developer pushes code to `final-project` branch
+2. Jenkins builds Docker image using Kaniko (no Docker daemon needed)
+3. Image is pushed to ECR with tag = `BUILD_NUMBER`
+4. Jenkins updates `charts/django-app/values.yaml` with the new tag
+5. Argo CD detects the Git change and syncs the deployment to EKS
+6. New pods roll out automatically
+
+---
+
+## Monitoring
+
+Prometheus scrapes metrics from all namespaces. Grafana includes pre-built dashboards for:
+- Kubernetes cluster health
+- Node CPU / memory / disk usage
+- Pod and deployment status
+- HPA scaling events
+
+Access Grafana via the LoadBalancer service in the `monitoring` namespace.
+
+---
+
+## Autoscaling
+
+The Django application uses a `HorizontalPodAutoscaler` configured to scale between 2 and 6 replicas when CPU utilization exceeds 70%.
+
+---
+
+## Teardown
+
+```bash
+helm uninstall django-app -n default
+terraform destroy
+```
+
+> ⚠️ Always run `terraform destroy` after testing to avoid unexpected AWS charges. Note that destroying also removes the S3 bucket and DynamoDB table used for state — follow Step 1 again on next deployment.

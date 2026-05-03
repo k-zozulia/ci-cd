@@ -1,4 +1,4 @@
-# IAM роль для EKS кластера
+# IAM role for the EKS cluster
 resource "aws_iam_role" "eks_cluster" {
   name = "${var.cluster_name}-cluster-role"
 
@@ -19,7 +19,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   role       = aws_iam_role.eks_cluster.name
 }
 
-# EKS кластер
+# EKS cluster
 resource "aws_eks_cluster" "main" {
   name     = var.cluster_name
   role_arn = aws_iam_role.eks_cluster.arn
@@ -39,7 +39,7 @@ resource "aws_eks_cluster" "main" {
   }
 }
 
-# IAM роль для Node Group
+# IAM role for the Node Group
 resource "aws_iam_role" "eks_nodes" {
   name = "${var.cluster_name}-node-role"
 
