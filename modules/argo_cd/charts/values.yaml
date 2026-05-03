@@ -4,7 +4,7 @@ applications:
     targetNamespace: default
     repoURL: https://github.com/k-zozulia/ci-cd.git
     path: charts/django-app
-    branch: lesson-8-9
+    branch: final-project
 
 repositories:
   - url: https://github.com/k-zozulia/ci-cd.git
